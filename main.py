@@ -46,13 +46,27 @@ def download(response, filename):
     else:
         print("Gagal download, status:", response.status_code)
 
+import os
+
 def merge2mp4(filename, path_output):
     path_merge = f"{base_dir}/temp/"
-    try:
-        ivf = os.path.join(path_merge, f"{filename}.ivf")
-        sfa = os.path.join(path_merge, f"{filename}#00.sfa")
-        out_mp4 = os.path.join(path_output, f"{filename}.mp4")
-        print("merging...")
+
+    out_mp4 = os.path.join(path_output, f"{filename}.mp4")
+
+    if os.path.exists(out_mp4):
+        print(f"{filename}.mp4 already exist")
+        return
+
+    ivf = os.path.join(path_merge, f"{filename}.ivf")
+    sfa = os.path.join(path_merge, f"{filename}#00.sfa")
+
+    alt_filename = f'live_finish_movie_0{filename[-7:]}'
+    alt_ivf = os.path.join(path_merge, f"{alt_filename}.ivf")
+    alt_sfa = os.path.join(path_merge, f"{alt_filename}#00.sfa")
+
+    print("merging...")
+
+    if os.path.exists(ivf) and os.path.exists(sfa):
         run_ffmpeg([
             "ffmpeg", "-y",
             "-i", ivf,
@@ -63,19 +77,19 @@ def merge2mp4(filename, path_output):
         ])
         os.remove(ivf)
         os.remove(sfa)
-    except:
-        filename = f'live_finish_movie_0{filename[-7:]}'
-        ivf = os.path.join(path_merge, f"{filename}.ivf")
-        sfa = os.path.join(path_merge, f"{filename}#00.sfa")
-        out_mp4 = os.path.join(path_output, f"{filename}.mp4")
-        print("merging...")
+
+    elif os.path.exists(alt_ivf) and os.path.exists(alt_sfa):
         run_ffmpeg([
             "ffmpeg", "-y",
-            "-i", ivf,
-            "-i", sfa,
+            "-i", alt_ivf,
+            "-i", alt_sfa,
             "-c:v", "copy",
             "-c:a", "aac",
             out_mp4
         ])
-        os.remove(ivf)
-        os.remove(sfa)
+        os.remove(alt_ivf)
+        os.remove(alt_sfa)
+
+    else:
+        print(f"Source files for {filename} not found")
+
