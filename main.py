@@ -46,7 +46,20 @@ def download(response, filename):
     else:
         print("Gagal download, status:", response.status_code)
 
-import os
+def merge_video_audio(video, audio, output):
+    if os.path.exists(output):
+        print(f"{output} already exist")
+    else:
+        run_ffmpeg([
+            "ffmpeg", "-y",
+            "-i", video,
+            "-i", audio,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            output
+        ])
+    os.remove(video)
+    os.remove(audio)
 
 def merge2mp4(filename, path_output):
     path_merge = f"{base_dir}/temp/"
@@ -67,29 +80,9 @@ def merge2mp4(filename, path_output):
     print("merging...")
 
     if os.path.exists(ivf) and os.path.exists(sfa):
-        run_ffmpeg([
-            "ffmpeg", "-y",
-            "-i", ivf,
-            "-i", sfa,
-            "-c:v", "copy",
-            "-c:a", "aac",
-            out_mp4
-        ])
-        os.remove(ivf)
-        os.remove(sfa)
-
+        merge_video_audio(ivf, sfa, out_mp4)
     elif os.path.exists(alt_ivf) and os.path.exists(alt_sfa):
-        run_ffmpeg([
-            "ffmpeg", "-y",
-            "-i", alt_ivf,
-            "-i", alt_sfa,
-            "-c:v", "copy",
-            "-c:a", "aac",
-            out_mp4
-        ])
-        os.remove(alt_ivf)
-        os.remove(alt_sfa)
-
+        merge_video_audio(alt_ivf, alt_sfa, out_mp4)
     else:
         print(f"Source files for {filename} not found")
 
