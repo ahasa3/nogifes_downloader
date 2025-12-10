@@ -1,4 +1,4 @@
-from main import *
+from function import *
 from usme_extract import usm_extractor
 live_finish = ['009227', '009228', '009229', 
                '009769', '009770', '009771', 
@@ -15,12 +15,15 @@ download_path = f"{base_dir}/Downloads/live-finish-movie"
 os.makedirs(download_path,exist_ok=True)
 for id_video in live_finish:
     filename = f"live_finish_movie_{id_video}0.usme"
+    if os.path.exists(f"{download_path}/{filename[:-5]}.mp4"):
+        print(f'{filename[:-5]} already exist')
+        continue
     link = f'{MAIN_PATH}{OPTIONAL_PATH["live-finish-movie"]}{filename}'
     response = requests.get(link, stream=True)
     download(response, filename)
     print("demuxing...")
     path_raw = os.path.join(base_dir,temp,filename)
     usm_extractor(path_raw, KEY)
-    merge2mp4(filename[:-5], download_path)
+    live_finish_movie(filename[:-5], download_path)
     os.remove(path_raw)
     print(f'{filename} downloaded')
