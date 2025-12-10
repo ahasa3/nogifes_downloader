@@ -25,23 +25,21 @@ def safe_open(file, mode='r', *args, **kwargs):
 
     return _real_open(file, mode, *args, **kwargs)
 
-def usm_extractor(video, key):
-    global out
+def usm_extractor(video, key, output):
     builtins.open = safe_open
 
     try:
         usm = USM(video, key=key)
-        usm.extract(out)
+        usm.extract(output)
     finally:
         builtins.open = _real_open
         
-def cpk_extractor(video, key):
-    global out
+def cpk_extractor(video, key, output):
     builtins.open = safe_open
 
     try:
         cpk = CPK(video, key=key)
-        cpk.extract(out)
+        cpk.extract(output)
     finally:
         builtins.open = _real_open
 
