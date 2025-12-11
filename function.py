@@ -82,3 +82,11 @@ def live_finish_movie(filename, path_output):
     else:
         print(f"Source files for {filename} not found")
 
+def live_bg(filename, path_output):
+    path_merge = f'{base_dir}/temp/{filename}'
+    
+    out_mp4 = os.path.join(path_output, f'{filename}.mp4')
+    
+    video = os.path.join(path_merge, 'movie')
+    audio = os.path.join(path_merge, 'music')
+    merge_video_audio(video, audio, out_mp4)

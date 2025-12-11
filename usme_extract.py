@@ -1,4 +1,4 @@
-from PyCriCodecs import USM, ACB, AWB, CPK
+from PyCriCodecs import USM, ACB, AWB, CPK, HCA
 import os
 import builtins
 import inspect
@@ -36,12 +36,18 @@ def usm_extractor(video, key, output):
         
 def cpk_extractor(video, key, output):
     builtins.open = safe_open
-
+    # try:
+    #     try:
+    #         cpk = CPK(video, key=key)
+    #         cpk.extract(output)
+    #     finally:
+    #         builtins.open = _real_open
+    # except:
     try:
-        cpk = CPK(video, key=key)
-        cpk.extract(output)
+            cpk = CPK(video)
+            cpk.extract()
     finally:
-        builtins.open = _real_open
+            builtins.open = _real_open
 
 def audio_extractor(audio, key, out):
     builtins.open = safe_open
@@ -57,3 +63,10 @@ def audio_extractor(audio, key, out):
     finally:
         builtins.open = _real_open
 
+def acb_extractor(audio, key, output):
+    builtins.open = safe_open
+    try:
+        acb = ACB(audio)
+        acb.extract(dirname=output, decode=True, key=key)
+    finally:
+        builtins.open = _real_open
