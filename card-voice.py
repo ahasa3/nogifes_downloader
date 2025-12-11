@@ -1,4 +1,4 @@
-from main import *
+from function import *
 from usme_extract import audio_extractor
 live_finish = ['009227', '009228', '009229', 
                '009769', '009770', '009771', 
