@@ -1,11 +1,19 @@
 import shutil
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
-start = 38001
-end = 38009
-last = 1
 
-#code rumus = singleTh+1 00 urut
+single_ = 24
+music = 1
+start = int(f'{single_}00{music}')
+end = 24007
+last = 1
+#11 =  1st album
+#16 = 2nd album
+#20 = 3rd album
+#23 = under super best
+#27 = 4th album
+#34 = album time flies
+#code rumus = singleTh+6 00 urut
 # contoh single kokoniwa nai mono (36th single) = 37001
 
 def demux_video(path_extracted, KEY, output_path, filename):
@@ -40,6 +48,21 @@ while start <= end:
     link = f'{MAIN_PATH}{OPTIONAL_PATH["live-background-data"]}{filename}'
     response = requests.get(link, stream=True)
 
+    output_path = f'{download_path}/{filename[:-5]}'
+    
+    if os.path.exists(f'{output_path}/{filename[:-4]}.mp4') or os.path.exists(f'{output_path}/{filename[:-4]}.png'):
+        print(f'{filename[:-4]} Already Exists')
+        last+=1
+        if last > 2:
+                last = 1
+                start+=1
+                music+=1
+        if music > 7:
+                music = 1
+                single_+=1
+                start = int(f'{single_}001')
+        continue
+
     if not os.path.exists(filename):
         download(response, filename)
         if response.status_code != 200:
@@ -47,16 +70,14 @@ while start <= end:
             if last > 2:
                 last = 1
                 start+=1
+                music+=1
+            if music > 7:
+                music = 1
+                single_+=1
+                start = int(f'{single_}001')
             continue
-    output_path = f'{download_path}/{filename[:-5]}'
+            
     os.makedirs(output_path, exist_ok=True)
-    if os.path.exists(f'{output_path}/{filename[:-4]}.mp4') or os.path.exists(f'{output_path}/{filename[:-4]}.png'):
-        print(f'{filename[:-4]} Already Exists')
-        last+=1
-        if last > 2:
-            last = 1
-            start+=1
-        continue
     print("demuxing...")
     path_raw = os.path.join(temp,filename)
     cpk_extractor(path_raw, KEY, download_path)
