@@ -23,7 +23,7 @@ for id_video in live_finish:
     download(response, filename)
     print("demuxing...")
     path_raw = os.path.join(base_dir,temp,filename)
-    usm_extractor(path_raw, KEY)
+    usm_extractor(path_raw, KEY, f'{base_dir}/temp')
     live_finish_movie(filename[:-5], download_path)
     os.remove(path_raw)
     print(f'{filename} downloaded')

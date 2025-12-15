@@ -4,8 +4,13 @@ from tqdm import tqdm
 MAIN_PATH= "https://v2static.nogifes.jp/resource"
 OPTIONAL_PATH = {"live-finish-movie":"/Movie/LiveFinishMovie/",
                  "focus-data":"/Movie/Focus/",
+                 "focus-data-high":"/Movie/HighFocusMovie/",
                  "live-background-data":"/Movie/LiveBg/",
-                 "card-voice":"/Sound/CardVoice/"}
+                 "live-background-data-high":"/Movie/HighLiveBg/",
+                 "other-data":"/Movie/Other/",
+                 "card-voice":"/Sound/CardVoice/",
+                 "member-standing":"/Movie/Member/",
+                 "reward-movie":"/Movie/Reward/"}
 KEY = 0x0013F11BC5510101
 #live_bg_data_00370032.cpk
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -44,7 +49,7 @@ def download(response, filename):
                     progress.update(len(chunk))
         print("Download selesai:", filename)
     else:
-        print("Gagal download, status:", response.status_code)
+        print(f'{filename} not in the server')
 
 def merge_video_audio(video, audio, output):
     if os.path.exists(output):
@@ -61,6 +66,17 @@ def merge_video_audio(video, audio, output):
     os.remove(video)
     os.remove(audio)
 
+def member_standing(filename, path_output):
+    path_merge = f'{base_dir}/temp/{filename}.ivf'
+    output = f'{path_output}/{filename}.mp4'
+    run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", path_merge,
+        "-c:v", "copy",
+        "-c:a", "aac",
+        output
+    ])
+    os.remove(path_merge)
 def live_finish_movie(filename, path_output):
     path_merge = f"{base_dir}/temp/"
 
@@ -90,3 +106,16 @@ def live_bg(filename, path_output):
     video = os.path.join(path_merge, 'movie')
     audio = os.path.join(path_merge, 'music')
     merge_video_audio(video, audio, out_mp4)
+
+def reward_movie(filename, path_output):
+    path_merge = os.path.join(base_dir, temp)
+
+    output = os.path.join(path_output, f'{filename}.mp4')
+    video = os.path.join(path_merge, f'{filename}.avi')
+    run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", video,
+        "-c:v", "copy",
+        "-c:a", "aac",
+        output
+    ])

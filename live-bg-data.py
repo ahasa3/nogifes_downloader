@@ -2,10 +2,10 @@ import shutil
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 
-single_ = 24
+single_ = 40
 music = 1
 start = int(f'{single_}00{music}')
-end = 24007
+end = 40007
 last = 1
 #11 =  1st album
 #16 = 2nd album
@@ -80,7 +80,7 @@ while start <= end:
     os.makedirs(output_path, exist_ok=True)
     print("demuxing...")
     path_raw = os.path.join(temp,filename)
-    cpk_extractor(path_raw, KEY, download_path)
+    cpk_extractor(path_raw, download_path)
     path_extracted = path_raw[:-4]
     if last == 1:
         demux_video(path_extracted, KEY, output_path,filename[:-4])

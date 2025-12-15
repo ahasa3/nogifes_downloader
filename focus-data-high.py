@@ -1,8 +1,8 @@
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 import shutil
-start = 1210
-end = 1220
+start = 1201
+end = 1210
 
 def demux_video(path_extracted, KEY, output_path, filename):
     try:
@@ -19,15 +19,15 @@ def demux_video(path_extracted, KEY, output_path, filename):
         print("gagal demux")
 
 
-download_path = f"{base_dir}/Downloads/focus-data"
+download_path = f"{base_dir}/Downloads/focus-data-high"
 os.makedirs(download_path,exist_ok=True)
 for target in range(int(start), int(end)+1):
     nol = ""
     for i in range(5-len(str(target))):
         nol += "0"
     id_video = nol + str(target)
-    filename = f'focus_data_{id_video}.cpk'
-    link = f'{MAIN_PATH}{OPTIONAL_PATH["focus-data"]}{filename}'
+    filename = f'focus_data_high_{id_video}.cpk'
+    link = f'{MAIN_PATH}{OPTIONAL_PATH["focus-data-high"]}{filename}'
     response = requests.get(link, stream=True)
     if os.path.exists(f'{download_path}/{filename[:-4]}.mp4'):
         print(f'{filename[:-4]} already exist')

@@ -34,7 +34,7 @@ def usm_extractor(video, key, output):
     finally:
         builtins.open = _real_open
         
-def cpk_extractor(video, key, output):
+def cpk_extractor(video, output):
     builtins.open = safe_open
     # try:
     #     try:
