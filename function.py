@@ -2,15 +2,18 @@ import requests, os, subprocess
 from tqdm import tqdm
 
 MAIN_PATH= "https://v2static.nogifes.jp/resource"
-OPTIONAL_PATH = {"live-finish-movie":"/Movie/LiveFinishMovie/",
-                 "focus-data":"/Movie/Focus/",
+OPTIONAL_PATH = {"focus-data":"/Movie/Focus/",
                  "focus-data-high":"/Movie/HighFocusMovie/",
+                 "live-finish-movie":"/Movie/LiveFinishMovie/",
                  "live-background-data":"/Movie/LiveBg/",
                  "live-background-data-high":"/Movie/HighLiveBg/",
                  "other-data":"/Movie/Other/",
-                 "card-voice":"/Sound/CardVoice/",
+                 "other-data-high":"/Movie/HighOtherMovie/",
                  "member-standing":"/Movie/Member/",
-                 "reward-movie":"/Movie/Reward/"}
+                 "reward-movie":"/Movie/Reward/",
+                 "preview-gacha":"/Movie/Gacha/Preview/",
+                 
+                 "card-voice":"/Sound/CardVoice/"}
 KEY = 0x0013F11BC5510101
 #live_bg_data_00370032.cpk
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -119,3 +122,17 @@ def reward_movie(filename, path_output):
         "-c:a", "aac",
         output
     ])
+
+def preview_gacha(filename, path_output):
+    path_merge = os.path.join(base_dir, temp)
+
+    output = os.path.join(path_output, f'{filename}.mp4')
+    video = os.path.join(path_merge, f'{filename}.ivf')
+    run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", video,
+        "-c:v", "copy",
+        "-c:a", "aac",
+        output
+    ])
+    os.remove(video)

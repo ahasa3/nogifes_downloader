@@ -1,0 +1,80 @@
+import shutil
+from function import *
+from usme_extract import cpk_extractor, usm_extractor, acb_extractor
+
+single_ = 40
+music = 1
+start = int(f'{single_}00{music}')
+end = 40007
+
+#11 =  1st album
+#16 = 2nd album
+#20 = 3rd album
+#23 = under super best
+#27 = 4th album
+#34 = album time flies
+#code rumus = singleTh+6 00 urut
+# contoh single kokoniwa nai mono (36th single) = 37001
+
+def demux_video(path_extracted, KEY, output_path, filename):
+    try:
+        usm_path = f'{path_extracted}/movie'
+        acb_path = f'{path_extracted}/music'
+        usm_extractor(usm_path, KEY, path_extracted)
+        acb_extractor(acb_path, KEY, path_extracted)
+        video = f'{path_extracted}/movie.264_med'
+        audio = f'{path_extracted}/0.wav'
+        output = f'{output_path}/{filename}.mp4'
+        merge_video_audio(video, audio, output)
+        shutil.rmtree(path_extracted)
+    except:
+        print("gagal demux")
+
+download_path = f"{base_dir}/Downloads/live-background-data-high"
+os.makedirs(download_path,exist_ok=True)
+while start <= end:
+    target = f'{start}3'
+    nol = ""
+    for i in range(8-len(target)):
+        nol += "0"
+    id_video = nol + str(target)
+
+    filename = f'live_bg_data_{id_video}.cpk'
+    link = f'{MAIN_PATH}{OPTIONAL_PATH["live-background-data-high"]}{filename}'
+    response = requests.get(link, stream=True)
+
+    output_path = f'{download_path}/{filename[:-5]}'
+    
+    if os.path.exists(f'{output_path}/{filename[:-4]}.mp4') or os.path.exists(f'{output_path}/{filename[:-4]}.png'):
+        print(f'{filename[:-4]} Already Exists')
+        music+=1
+        start+=1
+        if music > 7:
+                music = 1
+                single_+=1
+                start = int(f'{single_}001')
+        continue
+    if response.status_code != 200:
+            music+=1
+            start+=1
+            if music > 7:
+                music = 1
+                single_+=1
+                start = int(f'{single_}001')
+            print(f'{filename[:-4]} not in the server, status: {response.status_code}')
+            continue
+    if not os.path.exists(filename):
+        download(response, filename)
+        
+            
+    os.makedirs(output_path, exist_ok=True)
+    print("demuxing...")
+    path_raw = os.path.join(temp,filename)
+    cpk_extractor(path_raw, download_path)
+    path_extracted = path_raw[:-4]
+    demux_video(path_extracted, KEY, output_path,filename[:-4])
+    music+=1
+    start+=1
+
+    os.remove(path_raw)
+    print(f'{filename} downloaded')

@@ -2,9 +2,9 @@ import shutil
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 
-start = 119
+start = 100
 end = 120
-#other_data_00100.cpk
+
 def demux_video(path_extracted, KEY, output_path, filename):
     try:
         usm_path = f'{path_extracted}/movie'
@@ -18,16 +18,15 @@ def demux_video(path_extracted, KEY, output_path, filename):
         shutil.rmtree(path_extracted)
     except:
         print("gagal demux")
-download_path = f"{base_dir}/Downloads/other-data"
+download_path = f"{base_dir}/Downloads/other-data-high"
 os.makedirs(download_path,exist_ok=True)
 for target in range(start, end):
     nol = 5-len(str(start))
     id_video = '0'*nol + str(target)
 
-    filename = f'other_data_{id_video}.cpk'
-    link = f'{MAIN_PATH}{OPTIONAL_PATH["other-data"]}{filename}'
+    filename = f'other_data_high_{id_video}.cpk'
+    link = f'{MAIN_PATH}{OPTIONAL_PATH["other-data-high"]}{filename}'
     response = requests.get(link, stream=True)
-
     
     if os.path.exists(f'{download_path}/{filename[:-4]}.mp4') or os.path.exists(f'{download_path}/{filename[:-4]}.png'):
         print(f'{filename[:-4]} Already Exists')
