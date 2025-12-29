@@ -9,6 +9,7 @@ OPTIONAL_PATH = {"focus-data":"/Movie/Focus/",
                  "live-background-data-high":"/Movie/HighLiveBg/",
                  "other-data":"/Movie/Other/",
                  "other-data-high":"/Movie/HighOtherMovie/",
+                 "movie-card":"/Movie/MovieCard/",
                  "member-standing":"/Movie/Member/",
                  "reward-movie":"/Movie/Reward/",
                  "preview-gacha":"/Movie/Gacha/Preview/",
@@ -114,7 +115,24 @@ def reward_movie(filename, path_output):
     path_merge = os.path.join(base_dir, temp)
 
     output = os.path.join(path_output, f'{filename}.mp4')
-    video = os.path.join(path_merge, f'{filename}.avi')
+    video = os.path.join(path_merge, f'{filename}.264_med')
+    audio = os.path.join(path_merge, f'{filename}.avi')
+    run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", video,
+        "-i", audio,
+        "-c:v", "copy",
+        "-c:a", "aac",
+        output
+    ])
+    os.remove(video)
+    os.remove(audio)
+
+def preview_gacha(filename, path_output):
+    path_merge = os.path.join(base_dir, temp)
+
+    output = os.path.join(path_output, f'{filename}.mp4')
+    video = os.path.join(path_merge, f'{filename}.ivf')
     run_ffmpeg([
         "ffmpeg", "-y",
         "-i", video,
@@ -122,12 +140,13 @@ def reward_movie(filename, path_output):
         "-c:a", "aac",
         output
     ])
+    os.remove(video)
 
-def preview_gacha(filename, path_output):
+def movie_card(filename, path_output):
     path_merge = os.path.join(base_dir, temp)
 
+    video = os.path.join(path_merge, f'{filename}.264_med')
     output = os.path.join(path_output, f'{filename}.mp4')
-    video = os.path.join(path_merge, f'{filename}.ivf')
     run_ffmpeg([
         "ffmpeg", "-y",
         "-i", video,
