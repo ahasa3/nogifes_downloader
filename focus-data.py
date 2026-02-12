@@ -1,8 +1,9 @@
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 import shutil
-start = 1210
-end = 1220
+start = 1240
+end = 1250
+server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))
 
 def demux_video(path_extracted, KEY, output_path, filename):
     try:
@@ -27,7 +28,7 @@ for target in range(int(start), int(end)+1):
         nol += "0"
     id_video = nol + str(target)
     filename = f'focus_data_{id_video}.cpk'
-    link = f'{MAIN_PATH}{OPTIONAL_PATH["focus-data"]}{filename}'
+    link = f'{MAIN_PATH[server-1]}{OPTIONAL_PATH["focus-data"]}{filename}'
     response = requests.get(link, stream=True)
     if os.path.exists(f'{download_path}/{filename[:-4]}.mp4'):
         print(f'{filename[:-4]} already exist')

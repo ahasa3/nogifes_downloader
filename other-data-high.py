@@ -2,9 +2,10 @@ import shutil
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 
-start = 100
+start = 119
 end = 120
 
+server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))
 def demux_video(path_extracted, KEY, output_path, filename):
     try:
         usm_path = f'{path_extracted}/movie'
@@ -25,7 +26,7 @@ for target in range(start, end):
     id_video = '0'*nol + str(target)
 
     filename = f'other_data_high_{id_video}.cpk'
-    link = f'{MAIN_PATH}{OPTIONAL_PATH["other-data-high"]}{filename}'
+    link = f'{MAIN_PATH[server-1]}{OPTIONAL_PATH["other-data-high"]}{filename}'
     response = requests.get(link, stream=True)
     
     if os.path.exists(f'{download_path}/{filename[:-4]}.mp4') or os.path.exists(f'{download_path}/{filename[:-4]}.png'):

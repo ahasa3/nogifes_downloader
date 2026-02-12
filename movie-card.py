@@ -2,11 +2,12 @@ from function import *
 from usme_extract import usm_extractor
 import os
 
-start = 986
-end = 1000
+start = 1006
+end = 1020
 #reward_movie_02937
 download_path = f"{base_dir}/Downloads/movie-card"
 os.makedirs(download_path,exist_ok=True)
+server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))
 
 for id_file in range(start, end+1):
     nol = ''
@@ -15,7 +16,7 @@ for id_file in range(start, end+1):
             nol+='0'
     video_id = nol+str(id_file)
     filename = f"movie_card_{video_id}.usme"
-    link = f'{MAIN_PATH}{OPTIONAL_PATH["movie-card"]}{filename}'
+    link = f'{MAIN_PATH[server-1]}{OPTIONAL_PATH["movie-card"]}{filename}'
     response = requests.get(link, stream=True)
     
     output_path = os.path.join(download_path, f'{filename[:-4]}mp4')

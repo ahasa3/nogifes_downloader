@@ -2,7 +2,7 @@ import shutil
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 
-
+server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))
 start = 9000002
 end = 9000003
 last = 1
@@ -41,7 +41,7 @@ while start <= end:
     nol = ""
 
     filename = f'live_bg_data_{id_video}.cpk'
-    link = f'{MAIN_PATH}{OPTIONAL_PATH["live-background-data"]}{filename}'
+    link = f'{MAIN_PATH[server-1]}{OPTIONAL_PATH["live-background-data"]}{filename}'
     response = requests.get(link, stream=True)
 
     output_path = f'{download_path}/{filename[:-5]}'

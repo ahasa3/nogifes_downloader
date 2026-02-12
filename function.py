@@ -1,7 +1,9 @@
 import requests, os, subprocess
 from tqdm import tqdm
 
-MAIN_PATH= "https://v2static.nogifes.jp/resource"
+MAIN_PATH= [
+    "https://v1static.nogifes.jp/resource",
+    "https://v2static.nogifes.jp/resource"]
 OPTIONAL_PATH = {"focus-data":"/Movie/Focus/",
                  "focus-data-high":"/Movie/HighFocusMovie/",
                  "live-finish-movie":"/Movie/LiveFinishMovie/",
@@ -13,7 +15,8 @@ OPTIONAL_PATH = {"focus-data":"/Movie/Focus/",
                  "member-standing":"/Movie/Member/",
                  "reward-movie":"/Movie/Reward/",
                  "preview-gacha":"/Movie/Gacha/Preview/",
-                 
+                 "unit-gacha-movie":"/Movie/UnitGachaMovie/",
+                 "photo-common":"/Background/Photo/",
                  "card-voice":"/Sound/CardVoice/"}
 KEY = 0x0013F11BC5510101
 #live_bg_data_00370032.cpk
@@ -45,13 +48,12 @@ def download(response, filename):
             unit="B",
             unit_scale=True,
             unit_divisor=1024,
-            desc=filename,
+            desc=os.path.basename(filename),
         ) as progress:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
                     progress.update(len(chunk))
-        print("Download selesai:", filename)
     else:
         print(f'{filename} not in the server')
 
@@ -155,3 +157,31 @@ def movie_card(filename, path_output):
         output
     ])
     os.remove(video)
+
+def movie_card_with_music(video, audio, output):
+    run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", video,
+        "-i", audio,
+        "-filter_complex", '[1:0] apad', "-shortest",
+        output
+    ])
+
+def nogifra_video(video, audio, path_output):
+    output = os.path.join(path_output, f'{os.path.basename(video[:-8])}.mp4')
+    run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", video,
+        "-i", audio,
+        "-filter_complex", '[1:0] apad', "-shortest",
+        output
+    ])
+
+def center_select(video, path_output):
+    output = os.path.join(path_output, f'{os.path.basename(video[:-8])}.mp4')
+    run_ffmpeg([
+        "ffmpeg", "-y",
+        "-i", video,
+        "-filter_complex", '[1:0] apad', "-shortest",
+        output
+    ])
