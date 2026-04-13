@@ -3,10 +3,10 @@ Tools for downloading Nogizaka46 Rhythm Festival content.
 
 ## Requirements
 
-### 1. Python
+### Python
 Install Python 3.10 or above from [https://www.python.org/downloads/](https://www.python.org/downloads/)
 
-### 2. Microsoft C++ Build Tools
+### Microsoft C++ Build Tools
 Install Microsoft C++ Build Tools 14.0 or above from [https://visualstudio.microsoft.com/visual-cpp-build-tools/](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 
 > **Installation tip:** When the installer opens, check **"Desktop development with C++"** workload, then click Install.
