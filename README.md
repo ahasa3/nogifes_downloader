@@ -11,10 +11,6 @@ Install Microsoft C++ Build Tools 14.0 or above from [https://visualstudio.micro
 
 > **Installation tip:** When the installer opens, check **"Desktop development with C++"** workload, then click Install.
 
-### 3. FFmpeg
-Install FFmpeg and make sure it is added to your system PATH.
-Download from [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
-
 ## Installation
 
 1. Clone this repository
