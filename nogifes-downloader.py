@@ -2,8 +2,10 @@ import sys, requests, os, subprocess, shutil, glob, builtins, inspect
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QListWidget, QLabel, QFileDialog, QMenuBar, QMenu,
-    QAction, QAbstractItemView, QSlider, QFrame, QComboBox, QLineEdit, QDialog, QProgressBar, QScrollArea
+    QAction, QAbstractItemView, QSlider, QFrame, QComboBox, QLineEdit, 
+    QDialog, QProgressBar, QScrollArea
 )
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from urllib.parse import urlparse
 from PyCriCodecs import ACB, AWB, CPK, USM
@@ -17,7 +19,7 @@ content_option = [
     'live finish movie',
     'member standing',
     'movie card',
-    # 'movie card with music',
+    'movie card with music',
     'other data low',
     'other data high',
     'photo common',
@@ -46,7 +48,10 @@ FILE_PATH = {"card voice":"/Sound/CardVoice/",
             }
 
 EXTRACT_KEY = 0x0013F11BC5510101
-BASEDIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    BASEDIR = os.path.dirname(sys.executable)
+else:
+    BASEDIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_PATH = os.path.join(BASEDIR, "Downloads")
 TEMP = os.path.join(BASEDIR, 'temp')
 os.makedirs(TEMP,exist_ok= True)
@@ -301,6 +306,24 @@ class MovieCardProcessor(BaseProcessor):
             self.worker.file_done.emit(filename, False, f"FFmpeg: {str(e)}")
         self.worker.all_done.emit()
 
+class MovieCardWithMusicProcessor(BaseProcessor):
+    def __init__(self, worker, bgm_path):
+        super().__init__(worker)
+        self.bgm_path = bgm_path
+
+    def get_output_path(self, filename):
+        return os.path.join(OUTPUT_PATH, "movie-card-with-music", filename.replace(".usme", ".mp4"))
+    
+    def process(self, filepath, filename):
+        self.worker.ffmpeg_output.emit(filename, "merging with BGM...")
+        try:
+            ffmpeg = Ffmpeg_process(self.worker)
+            ffmpeg.movie_card_with_music(filename, filepath, self.bgm_path)
+        except Exception as e:
+            self.worker.file_done.emit(filename, False, f'FFMPEG: {str(e)}')
+        self.worker.all_done.emit()
+
+
 class OtherDataLowProcessor(BaseProcessor):
     def get_output_path(self, filename):
         return os.path.join(OUTPUT_PATH, "other-data", filename.replace(".cpk", ".mp4"))
@@ -364,7 +387,9 @@ class PhotoCommonProcessor(BaseProcessor):
         return os.path.join(OUTPUT_PATH, "photo-common", filename)
     
     def process(self, filepath, filename):
-        shutil.move(filepath, os.path.join(OUTPUT_PATH, "photo-common", filename))
+        output_dir = os.path.join(OUTPUT_PATH, 'photo-common')
+        os.makedirs(output_dir, exist_ok=True)
+        shutil.move(filepath, os.path.join(output_dir, filename))
         self.worker.all_done.emit()
 
 class RewardMovieProcessor(BaseProcessor):
@@ -440,6 +465,7 @@ PROCESSOR_MAP = {
     "live finish movie": LiveFinishMovieProcessor,
     "member standing": MemberStandingProcessor,
     "movie card": MovieCardProcessor,
+    "movie card with music": MovieCardWithMusicProcessor,
     "other data low": OtherDataLowProcessor,
     "other data high": OtherDataHighProcessor,
     "photo common": PhotoCommonProcessor,
@@ -456,15 +482,34 @@ class Progress(QThread):
     ffmpeg_output = pyqtSignal(str, str) # (filename, line_output)
     all_done = pyqtSignal()
 
-    def __init__(self, urls, option):
+    def __init__(self, urls, option, bgm_config = None):
         super().__init__()
         self.urls = urls
         self.option = option
+        self.bgm_config = bgm_config
     
     def run(self):
         for url in self.urls:
+            if url.startswith("file://"):
+                filepath = url[7:]
+                if os.name == "nt":
+                    filepath = filepath.lstrip("/")
+                filename = os.path.basename(filepath)
+                
+                bgm_path = self.bgm_config.get("bgm_path") if self.bgm_config else None
+                processor = MovieCardWithMusicProcessor(self, bgm_path=bgm_path)
+                output_path = processor.get_output_path(filename)
+                self.start_progress.emit(filename)
+
+                if output_path and os.path.exists(output_path):
+                    self.file_done.emit(filename, True, f'{filename[:-4]} already exist')
+                    continue
+
+                processor.process(filepath, filename)
+                continue
+            
             filename = os.path.basename(urlparse(url).path)
-            filepath = os.path.join(BASEDIR, TEMP, filename)
+            filepath = os.path.join(TEMP, filename)
 
             processor_class = PROCESSOR_MAP.get(self.option, DefaultProcessor)
             processor = processor_class(self)
@@ -499,11 +544,38 @@ class Progress(QThread):
 
             processor.process(filepath, filename)
 
+class ThumbnailThread(QThread):
+    done = pyqtSignal(object)   # QPixmap
+
+    def __init__(self, video_path: str):
+        super().__init__()
+        self.video_path = video_path
+
+    def run(self):
+        try:
+            tmp = os.path.join(TEMP, f"thumb_{os.path.basename(self.video_path)}.jpg")
+            subprocess.run([
+                "ffmpeg", "-y", "-i", self.video_path,
+                "-ss", "00:00:01", "-vframes", "1",
+                "-vf", "scale=264:-1", tmp
+            ], capture_output=True, timeout=10)
+            from PyQt5.QtGui import QPixmap
+            pix = QPixmap(tmp)
+            if not pix.isNull():
+                self.done.emit(pix)
+            try:
+                os.remove(tmp)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
 class DownloadProgress(QDialog):
-    def __init__(self, urls, option, parent = None):
+    def __init__(self, urls, option, parent = None, bgm_config = None):
         super().__init__(parent)
         self.urls=urls
         self.option = option
+        self.bgm_config = bgm_config
         self.file_widgets = {}
 
         self._build_ui()
@@ -524,8 +596,11 @@ class DownloadProgress(QDialog):
         self.download_layout = QVBoxLayout(content_widget)
         self.download_layout.addStretch()
 
+        self.log_box = QListWidget()
+
         scroll.setWidget(content_widget)
         outer_layout.addWidget(scroll)
+        outer_layout.addWidget(self.log_box)
 
         self.scroll = scroll
 
@@ -549,12 +624,14 @@ class DownloadProgress(QDialog):
         )
 
     def _start_download(self):
-        self.downloading = Progress(self.urls, self.option)
+        self.downloading = Progress(self.urls, self.option, bgm_config=self.bgm_config)
         self.downloading.start_progress.connect(self._add_file_widget)
         self.downloading.progress.connect(self._on_progress)
         self.downloading.file_done.connect(self._on_file_done)
         self.downloading.extract.connect(self._on_extract_start)
         self.downloading.extract_done.connect(self._on_extract_done)
+        self.downloading.ffmpeg_output.connect(self._on_ffmpeg_output)
+        self.downloading.all_done.connect(self._on_all_done)
         self.downloading.start()
 
     def _on_progress(self, filename: str, downloaded: int, total: int):
@@ -582,11 +659,13 @@ class DownloadProgress(QDialog):
             w["label"].setText(f'{filename} is not in the server')
             w["label"].setStyleSheet("color: red;")
             w["status"].hide()
+
         if success:
             w["bar"].setValue(100)
             w["bar"].setFormat("✅ 100%")
             w["status"].setText(message)
             w["status"].setStyleSheet("color: green;")
+
         else:
             w["bar"].setFormat("❌ Gagal")
             w["status"].setText(f"Error: {message}")
@@ -617,20 +696,20 @@ class DownloadProgress(QDialog):
             w["status"].setText(f"Error: {message}")
             w["status"].setStyleSheet("color: red;")
     def _on_ffmpeg_output(self, filename:str, line:str):
-        self.log_box.append(f"[{filename}] {line}")
+        self.log_box.addItem(f"[{filename}] {line}")
 
         self.log_box.verticalScrollBar().setValue(
             self.log_box.verticalScrollBar().maximum()
         )
     
     def _on_all_done(self):
-        self.btn_close.setEnabled(True)
         self.setWindowFlag(Qt.WindowCloseButtonHint, True)
         self.show()
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowIcon(QIcon(self.resource_path("icon.ico")))
         self.init_ui()
 
     def init_ui(self):
@@ -687,6 +766,9 @@ class MainWindow(QMainWindow):
         
         if self.option.currentText() == "member standing":
             self.member_standing_ui()
+        
+        if self.option.currentText() == "movie card with music":
+            self.movie_card_with_music_ui()
 
         if self.option.currentText() == "photo common":
             self.form_default_ui(
@@ -785,6 +867,210 @@ class MainWindow(QMainWindow):
 
         self._dynamic_widgets.append(container)
 
+    def movie_card_with_music_ui(self):
+        self.setFixedSize(800, 560)
+
+        container = QWidget()
+        main_layout = QHBoxLayout(container)
+        main_layout.setContentsMargins(8, 8, 8, 8)
+        main_layout.setSpacing(8)
+
+        left_Widget = QWidget()
+        left_layout = QVBoxLayout(left_Widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(6)
+
+        self.cards = {}
+        self.video_selected = set()
+
+        folder_lbl = QLabel(os.path.basename(os.path.join(OUTPUT_PATH, 'movie-card')))
+        folder_lbl.setStyleSheet("font-size:11px; color:gray;")
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        self.grid_widget = QWidget()
+        self.grid_layout = QVBoxLayout(self.grid_widget)
+        self.grid_layout.setAlignment(Qt.AlignTop)
+        self.grid_layout.setSpacing(6)
+        
+        scroll.setWidget(self.grid_widget)
+        left_layout.addWidget(scroll)
+
+        self._movie_card_load_folder()        
+
+        main_layout.addWidget(left_Widget, stretch=1)
+
+        right_frame = QFrame()
+        right_frame.setFrameShape(QFrame.StyledPanel)
+        right_frame.setFixedWidth(200)
+        
+        right_layout = QVBoxLayout(right_frame)
+        right_layout.setContentsMargins(10, 10, 10, 10)
+        right_layout.setSpacing(10)
+
+        right_layout.addWidget(QLabel("Background Music"))
+
+        self.bgm_path = None
+        self.bgm_button = QPushButton("Pilih file audio...")
+        self.bgm_button.setFixedHeight(50)
+        self.bgm_button.clicked.connect(self._movie_card_pick_bgm)
+        right_layout.addWidget(self.bgm_button)
+
+        self.count_lbl = QLabel("0 video terpilih")
+        self.count_lbl.setAlignment(Qt.AlignCenter)
+        right_layout.addWidget(self.count_lbl)
+
+        self.btn_process = QPushButton("Process")
+        self.btn_process.setFixedHeight(36)
+        self.btn_process.setEnabled(False)
+        self.btn_process.clicked.connect(self._movie_card_start_process)
+        
+        right_layout.addWidget(self.btn_process)
+
+        main_layout.addWidget(right_frame)
+
+        self.layout.addWidget(container)
+        self._dynamic_widgets.append(container)
+
+    def _movie_card_load_folder(self):
+        folder = os.path.join(OUTPUT_PATH, 'movie-card')
+        self.cards.clear()
+        self.video_selected.clear()
+
+        for i in reversed(range(self.grid_layout.count())):
+            item = self.grid_layout.itemAt(i)
+            if item and item.widget():
+                item.widget().deleteLater()
+            self.movie_card_update_state()
+        
+        files = sorted([
+            file for file in os.listdir(folder)
+            if file.lower().endswith(".mp4")
+        ])
+
+        COLUMNS = 3
+        row_widget = None
+        row_layout = None
+
+        for i, filename in enumerate(files):
+            if i % COLUMNS == 0:
+                row_widget = QWidget()
+                row_layout = QHBoxLayout(row_widget)
+                row_layout.setContentsMargins(0, 0, 0, 0)
+                row_layout.setSpacing(6)
+                self.grid_layout.addWidget(row_widget)
+            
+            filepath = os.path.join(folder, filename)
+            card = self._movie_card_make_card(filename, filepath)
+            row_layout.addWidget(card)
+
+        if files and len(files) % COLUMNS != 0:
+            remainder = COLUMNS - (len(files) % COLUMNS)
+            for _ in range(remainder):
+                spacer = QWidget()
+                row_layout.addWidget(spacer)
+    
+    def _movie_card_make_card(self, filename, filepath) -> QFrame:
+        card = QFrame()
+        card.setFixedSize(140, 110)
+        card.setCursor(Qt.PointingHandCursor)
+        card.setFrameShape(QFrame.StyledPanel)
+
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
+
+        thumb_lbl = QLabel()
+        thumb_lbl.setFixedSize(132, 74)
+        thumb_lbl.setAlignment(Qt.AlignCenter)
+        thumb_lbl.setStyleSheet("background:#222; border-radius:4px; color:#666; font-size:10px;")
+        thumb_lbl.setText("loading...")
+        layout.addWidget(thumb_lbl)
+
+        name_lbl = QLabel(filename)
+        name_lbl.setStyleSheet("font-size:10px;")
+        name_lbl.setFixedWidth(132)
+        elided = name_lbl.fontMetrics().elidedText(filename, Qt.ElideMiddle,  132)
+        name_lbl.setText(elided)
+        layout.addWidget(name_lbl)
+
+        check = QLabel("✓", card)
+        check.setFixedSize(20, 20)
+        check.setAlignment(Qt.AlignCenter)
+        check.setStyleSheet(
+            "background:#2196F3; color:white; border-radius:10px; font-size:12px; font-weight:bold;"
+        )
+        check.move(116, 6)
+        check.setVisible(False)
+
+        self.cards[filepath] = {"widget":card,
+                                "check": check,
+                                "selected": False}
+        
+        thumb_thread = ThumbnailThread(filepath)
+        thumb_thread.done.connect(lambda pix, lbl=thumb_lbl: lbl.setPixmap(
+
+            pix.scaled(132, 74, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        ))
+
+        thumb_thread.start()
+
+        if not hasattr(self, "_thumb_threads"):
+            self._thumb_threads = []
+        self._thumb_threads.append(thumb_thread)
+
+        card.mousePressEvent = lambda _e, p=filepath: self._movie_card_toggle(p)
+        return card
+
+    def _movie_card_toggle(self, filepath):
+        info = self.cards.get(filepath)
+        if not info:
+            return
+        info["selected"] = not info["selected"]
+        info["check"].setVisible(info["selected"])
+        border = "2px solid #2196F3" if info["selected"] else "1px solid #555"
+        info["widget"].setStyleSheet(f"QFrame {{ border: {border}; border-radius: 6px; }}")
+        if info["selected"]:
+            self.video_selected.add(filepath)
+        else:
+            self.video_selected.discard(filepath)
+        self._movie_card_update_state()
+    
+    def _movie_card_pick_bgm(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Pilih BGM",
+            filter="Audio Files (*.mp3 *.aac *.wav *.ogg *.m4a *.flac)"
+        )
+        if path:
+            self.bgm_path = path
+            self.bgm_button.setText(f"🎵 {os.path.basename(path)}")
+            self._movie_card_update_state()
+
+    def _movie_card_update_state(self):
+        sum_selected = len(self.video_selected)
+        self.count_lbl.setText(f'{sum_selected} video terpilih')
+        ok = sum_selected > 0 and bool(self.bgm_path)
+        self.btn_process.setEnabled(ok)
+    
+    def _movie_card_start_process(self):
+        selected = list(self.video_selected)
+        if not selected or not self.bgm_path:
+            return
+        
+        bgm_config = {"bgm_path": self.bgm_path}
+
+        urls = [f"file://{p.replace(os.sep, '/')}" for p in selected]
+
+        dialog = DownloadProgress(
+            urls, "movie card with music",
+            bgm_config=bgm_config,
+            parent=self
+        )
+        dialog.exec_()
+
+
     def get_url(self, start_id: int, last_id: int):
         option = self.option.currentText()
         server = self.server.currentText()
@@ -879,6 +1165,14 @@ class MainWindow(QMainWindow):
 
         dialog = DownloadProgress(urls, self.option.currentText(), parent=parent_widget)
         dialog.exec_()
+    
+    @staticmethod
+    def resource_path(relative_path):
+        if getattr(sys, 'frozen', False):
+            base = sys._MEIPASS 
+        else:
+            base = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(base, relative_path)
 
 class Extractor():
     def __init__(self):
@@ -1030,6 +1324,23 @@ class Ffmpeg_process():
                    "-c:a", "aac",
                    output_path,
                    "-y"]
+        self.run_ffmpeg(filename, command)
+    
+    def movie_card_with_music(self, filename, video_path, bgm_path):
+        output_dir = os.path.join(OUTPUT_PATH, "movie-card-with-music")
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
+        
+        command = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", bgm_path,
+            "-filter_complex", '[1:0] apad',
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest",
+            output_path
+        ]
         self.run_ffmpeg(filename, command)
 
     def other_data_low(self, filename, video_path, audio_path):
