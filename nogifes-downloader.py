@@ -1,11 +1,11 @@
-import sys, requests, os, subprocess, shutil, glob, builtins, inspect
+import sys, requests, os, subprocess, shutil, glob, builtins, inspect, re, time
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QListWidget, QLabel, QFileDialog, QMenuBar, QMenu,
     QAction, QAbstractItemView, QSlider, QFrame, QComboBox, QLineEdit, 
     QDialog, QProgressBar, QScrollArea
 )
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from urllib.parse import urlparse
 from PyCriCodecs import ACB, AWB, CPK, USM
@@ -479,7 +479,7 @@ class Progress(QThread):
     file_done = pyqtSignal(str, bool, str) # (filename, success, message)
     extract = pyqtSignal(str)
     extract_done = pyqtSignal(str, bool, str)
-    ffmpeg_output = pyqtSignal(str, str) # (filename, line_output)
+    ffmpeg_output = pyqtSignal(str, int) # (filename, line_output)
     all_done = pyqtSignal()
 
     def __init__(self, urls, option, bgm_config = None):
@@ -554,12 +554,27 @@ class ThumbnailThread(QThread):
     def run(self):
         try:
             tmp = os.path.join(TEMP, f"thumb_{os.path.basename(self.video_path)}.jpg")
-            subprocess.run([
-                "ffmpeg", "-y", "-i", self.video_path,
+
+            startupinfo = None
+            creationflags = 0
+
+            if os.name == "nt":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                creationflags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+
+            result = subprocess.run([
+                "ffmpeg", "-y", 
+                "-i", self.video_path,
                 "-ss", "00:00:01", "-vframes", "1",
                 "-vf", "scale=264:-1", tmp
-            ], capture_output=True, timeout=10)
-            from PyQt5.QtGui import QPixmap
+            ], 
+                stdin=subprocess.DEVNULL, 
+                startupinfo=startupinfo,
+                creationflags=creationflags, 
+                capture_output=True, 
+                timeout=10)
+            
             pix = QPixmap(tmp)
             if not pix.isNull():
                 self.done.emit(pix)
@@ -596,11 +611,8 @@ class DownloadProgress(QDialog):
         self.download_layout = QVBoxLayout(content_widget)
         self.download_layout.addStretch()
 
-        self.log_box = QListWidget()
-
         scroll.setWidget(content_widget)
         outer_layout.addWidget(scroll)
-        outer_layout.addWidget(self.log_box)
 
         self.scroll = scroll
 
@@ -695,12 +707,16 @@ class DownloadProgress(QDialog):
             w["bar"].setFormat("❌ Extract Failed")
             w["status"].setText(f"Error: {message}")
             w["status"].setStyleSheet("color: red;")
-    def _on_ffmpeg_output(self, filename:str, line:str):
-        self.log_box.addItem(f"[{filename}] {line}")
+    def _on_ffmpeg_output(self, filename:str, percent):
+        w = self.file_widgets.get(filename)
+        if not w:
+            return
 
-        self.log_box.verticalScrollBar().setValue(
-            self.log_box.verticalScrollBar().maximum()
-        )
+        w["bar"].setValue(percent)
+        w["bar"].setFormat(f"🎬 {percent}%")
+
+        w["status"].setText("🎬 Processing...")
+        w["status"].setStyleSheet("color: purple;")
     
     def _on_all_done(self):
         self.setWindowFlag(Qt.WindowCloseButtonHint, True)
@@ -1247,36 +1263,65 @@ class Ffmpeg_process():
         self.worker = worker
 
     def run_ffmpeg(self, filename, command):
+        startupinfo = None
+        creationflags = 0
+
+        if os.name == "nt":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            creationflags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
             text=True,
             bufsize=1,
+            startupinfo=startupinfo,
+            creationflags=creationflags
         )
 
-        output_lines = []
+        duration = None
+
         for line in process.stdout:
-            output_lines.append(line.strip())
-            self.worker.ffmpeg_output.emit(filename, line.strip())
+            line = line.strip()
+
+            if "Duration:" in line:
+                match = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", line)
+                if match:
+                    h, m, s = match.groups()
+                    duration = int(h)*3600 + int(m)*60 + float(s)
+
+            if "out_time=" in line:
+                time_str = line.split("=")[1]
+                parts = time_str.split(":")
+                if len(parts) == 3:
+                    h, m, s = parts
+                    current = int(h)*3600 + int(m)*60 + float(s)
+
+                    if duration:
+                        percent = int((current / duration) * 100)
+
+                        self.worker.ffmpeg_output.emit(filename, percent)
 
         process.wait()
+
         if process.returncode == 0:
             self.worker.file_done.emit(filename, True, f"{filename[:-4]} Downloaded")
         else:
-        # Tampilkan semua output FFmpeg untuk debug
-            full_output = "\n".join(output_lines[-10:])  # 10 baris terakhir
-            self.worker.file_done.emit(filename, False, 
-                f"FFmpeg error (code {process.returncode}):\n{full_output}")
+            self.worker.file_done.emit(filename, False, "FFmpeg error")
 
     def focus_data_low(self, filename, video_path: str, audio_path: str):
         output_dir = os.path.join(OUTPUT_PATH, "focus-data")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
                    "-c", "copy",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1285,9 +1330,11 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
                    "-c", "copy",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1297,9 +1344,11 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
                    "-c", "copy",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1309,10 +1358,12 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1322,9 +1373,11 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1334,9 +1387,11 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1347,14 +1402,16 @@ class Ffmpeg_process():
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         
         command = [
-            "ffmpeg", "-y",
+            "ffmpeg",
             "-i", video_path,
             "-i", bgm_path,
             "-filter_complex", '[1:0] apad',
             "-c:v", "copy",
             "-c:a", "aac",
             "-shortest",
-            output_path
+            "-progress", "pipe:1", "-nostats",
+            output_path,
+            "-y"
         ]
         self.run_ffmpeg(filename, command)
 
@@ -1363,9 +1420,11 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
                    "-c", "copy",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1375,9 +1434,11 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
                    "-c", "copy",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1387,10 +1448,12 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",   
                    "-i", video_path,
                    "-i", audio_path,
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
@@ -1400,9 +1463,11 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
+                   "-loglevel", "error",   
                    "-i", video_path,
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-progress", "pipe:1", "-nostats",
                    output_path,
                    "-y"]
         self.run_ffmpeg(filename, command)
