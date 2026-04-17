@@ -2,8 +2,8 @@ from function import *
 from usme_extract import usm_extractor
 import os
 
-start = 1006
-end = 1020
+start = 1040
+end = 1050
 #reward_movie_02937
 download_path = f"{base_dir}/Downloads/movie-card"
 os.makedirs(download_path,exist_ok=True)

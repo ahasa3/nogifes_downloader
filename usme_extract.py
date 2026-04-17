@@ -70,3 +70,26 @@ def acb_extractor(audio, key, output):
         acb.extract(dirname=output, decode=True, key=key)
     finally:
         builtins.open = _real_open
+
+def nogifra_usm_extractor(video, output):
+    builtins.open = safe_open
+
+    try:
+        usm = USM(video)
+        usm.extract(output)
+    finally:
+        builtins.open = _real_open
+
+def audio_nogifra_extractor(audio, key, out):
+    builtins.open = safe_open
+    
+    try:
+        if audio[-3:] == "acb":
+            audioObj = ACB(audio)
+            audioObj.extract(dirname=out, decode=True, key=key)
+        elif audio[-3:] == "awb":
+            audioObj = AWB(audio)
+            audioObj.extract(dirname=out, decode=True, key=key)
+        
+    finally:
+        builtins.open = _real_open

@@ -2,10 +2,10 @@ import shutil
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 
-single_ = 45
+single_ = 32
 music = 1
 start = int(f'{single_}00{music}')
-end = 45007
+end = 32007
 server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))
 
 #11 =  1st album

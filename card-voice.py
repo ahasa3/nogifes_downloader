@@ -1,7 +1,7 @@
 from function import *
 from usme_extract import audio_extractor
-live_finish = ['012602']
-#     '009227', '009228', '009229', 
+live_finish = [#'012602']
+    '009227', '009228', '009229', 
 #                '009769', '009770', '009771', 
 #                '010055', '010056', '010057', 
 #                '010320', '010321', '010322', 
@@ -12,6 +12,7 @@ live_finish = ['012602']
 #                '011850', '011851', '011852', 
 #                '012287', '012288', '012289', 
 #                '012420', '012421', '012422']
+]
 download_path = f"{base_dir}/Downloads/card-voice"
 os.makedirs(download_path,exist_ok=True)
 server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))

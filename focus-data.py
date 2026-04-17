@@ -1,8 +1,8 @@
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 import shutil
-start = 1240
-end = 1250
+start = 1250
+end = 1300
 server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))
 
 def demux_video(path_extracted, KEY, output_path, filename):

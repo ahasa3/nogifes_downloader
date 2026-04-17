@@ -17,6 +17,7 @@ OPTIONAL_PATH = {"focus-data":"/Movie/Focus/",
                  "preview-gacha":"/Movie/Gacha/Preview/",
                  "unit-gacha-movie":"/Movie/UnitGachaMovie/",
                  "photo-common":"/Background/Photo/",
+                 "card":"/Android_2017_4_1f1/card/",
                  "card-voice":"/Sound/CardVoice/"}
 KEY = 0x0013F11BC5510101
 #live_bg_data_00370032.cpk

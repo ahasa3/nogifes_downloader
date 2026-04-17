@@ -2,8 +2,8 @@ import shutil
 from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 
-start = 119
-end = 120
+start = 130
+end = 140
 server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))
 #other_data_00100.cpk
 def demux_video(path_extracted, KEY, output_path, filename):
@@ -21,7 +21,7 @@ def demux_video(path_extracted, KEY, output_path, filename):
         print("gagal demux")
 download_path = f"{base_dir}/Downloads/other-data"
 os.makedirs(download_path,exist_ok=True)
-for target in range(start, end):
+for target in range(start, end+1):
     nol = 5-len(str(start))
     id_video = '0'*nol + str(target)
 

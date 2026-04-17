@@ -3,10 +3,10 @@ from function import *
 from usme_extract import cpk_extractor, usm_extractor, acb_extractor
 
 server = int(input("choose server:\n1. server 1\n2. server 2\n\n"))
-single_ = 41
-music = 1
+single_ = 45
+music = 5
 start = int(f'{single_}00{music}')
-end = 41006
+end = 45006
 last = 1
 #11 =  1st album
 #16 = 2nd album
