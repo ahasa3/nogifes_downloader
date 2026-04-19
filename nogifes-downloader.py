@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 from PyCriCodecs import ACB, AWB, CPK, USM
 
 content_option = [
+    'another live background data low',
+    'another live background data high',
     'card voice',
     'focus data low',
     'focus data high',
@@ -31,7 +33,10 @@ content_option = [
 MAIN_PATH= {
     "server 1":"https://v1static.nogifes.jp/resource",
     "server 2":"https://v2static.nogifes.jp/resource"}
-FILE_PATH = {"card voice":"/Sound/CardVoice/",
+FILE_PATH = {
+            "another live background data low":"/Movie/LiveBg/",
+            "another live background data high":"/Movie/LiveBg/",
+            "card voice":"/Sound/CardVoice/",
             "focus data low":"/Movie/Focus/",
             "focus data high":"/Movie/HighFocusMovie/",
             "live finish movie":"/Movie/LiveFinishMovie/",
@@ -67,6 +72,76 @@ class BaseProcessor:
     def process(self, filepath, filename):
         raise NotImplementedError
 
+
+class AnotherLiveBackgroundDataLowProcessor(BaseProcessor):
+    def get_output_path(self, filename):
+        return os.path.join(OUTPUT_PATH, 'another-live-background-data', filename[:-5], filename.replace(".usme", ".mp4"))
+
+    def process(self, filepath, filename):
+        self.worker.extract.emit(filename)
+        extracted_path = filepath[:-4]
+
+        try:
+            extractor = Extractor()
+            if int(filename[-5:-4]) == 1:
+                extractor.focus_data(filepath=filepath, extracted_path=extracted_path) #process same as focus  data
+            elif int(filename[-5:-4]) == 2:
+                extractor.cpk_extractor(filepath)
+            self.worker.extract_done.emit(filename, True,  "CPK Extracted")
+            os.remove(filepath)
+        except Exception as e:
+            self.worker.extract_done.emit(filename, False, str(e))
+            return
+
+        self.worker.ffmpeg_output.emit(filename, "converting")
+        try:
+            if int(filename[-5:-4]) == 1:
+                video_path = os.path.join(extracted_path, "movie.264_med")
+                audio_path = os.path.join(extracted_path, "0.wav")
+
+                ffmpeg = Ffmpeg_process(self.worker)
+                ffmpeg.another_live_background_data(filename, video_path, audio_path)
+            elif int(filename[-5:-4]) == 2:
+                output = os.path.join(OUTPUT_PATH, "another-live-background-data", filename[:-5], filename.replace(".cpk", ".png"))
+                shutil.copy(f'{extracted_path}/background', output)
+            
+            self.worker.file_done.emit(filename, True, f'{filename[:-4]} Downloaded')
+        except  Exception as e:
+            self.worker.file_done.emit(filename, False, f"FFmpeg: {str(e)}")
+        shutil.rmtree(extracted_path)
+        self.worker.all_done.emit()
+
+class AnotherLiveBackgroundDataHighProcessor(BaseProcessor):
+    def get_output_path(self, filename):
+        return os.path.join(OUTPUT_PATH, "another-live-background-data", filename[:-5], filename.replace(".cpk", ".mp4"))
+    
+    def process(self, filepath, filename):
+        self.worker.extract.emit(filename)
+        extracted_path = filepath[:-4]
+
+        try:
+            extractor = Extractor()
+            extractor.focus_data(filepath=filepath, extracted_path=extracted_path) #process same as focus data
+            self.worker.extract_done.emit(filename, True,  "CPK Extracted")
+            os.remove(filepath)
+        except Exception as e:
+            self.worker.extract_done.emit(filename, False, str(e))
+            return
+
+        self.worker.ffmpeg_output.emit(filename, "converting")
+        try:
+            video_path = os.path.join(extracted_path, "movie.264_med")
+            audio_path = os.path.join(extracted_path, "0.wav")
+
+            ffmpeg = Ffmpeg_process(self.worker)
+            ffmpeg.another_live_background_data(filename, video_path, audio_path)
+            
+            self.worker.file_done.emit(filename, True, f'{filename[:-4]} Downloaded')
+        except  Exception as e:
+            self.worker.file_done.emit(filename, False, f"FFmpeg: {str(e)}")
+        shutil.rmtree(extracted_path)
+        self.worker.all_done.emit()
+    
 class CardVoiceProcessor(BaseProcessor):
     def get_output_path(self, filename):
         return os.path.join(OUTPUT_PATH, "card-voice", filename[:-4])
@@ -457,6 +532,8 @@ class DefaultProcessor(BaseProcessor):
         self.worker.extract_done.emit(filename, True, "No Process Needed")
 
 PROCESSOR_MAP = {
+    "another live background data low": AnotherLiveBackgroundDataLowProcessor,
+    "another live background data high": AnotherLiveBackgroundDataHighProcessor,
     "card voice": CardVoiceProcessor,
     "focus data low": FocusDataLowProcessor,
     "focus data high": FocusDataHighProcessor,
@@ -758,6 +835,13 @@ class MainWindow(QMainWindow):
     def option_select(self):
         self._clear_dynamic_widgets()
 
+        if self.option.currentText() == 'another live background data low' or \
+            self.option.currentText() == 'another live background data high':
+            self.form_default_ui(
+                "Input video id with 6 digit number:",
+                "000001",
+                "000002"
+            )
         if self.option.currentText() == "card voice" or \
                 self.option.currentText() == "live finish movie" or \
                 self.option.currentText() == "unit gacha movie":
@@ -777,7 +861,8 @@ class MainWindow(QMainWindow):
                 "00001",
                 "00002"
             )
-        if self.option.currentText() == "live background data low" or self.option.currentText() == "live background data high":
+        if self.option.currentText() == "live background data low" or \
+            self.option.currentText() == "live background data high":
             self.live_bg_ui()
         
         if self.option.currentText() == "member standing":
@@ -788,24 +873,24 @@ class MainWindow(QMainWindow):
 
         if self.option.currentText() == "photo common":
             self.form_default_ui(
-                "Input photo id with 5 digit",
+                "Input photo id with 5 digit number",
                 "00001",
                 "00002"
             )
         
 
     def form_default_ui(self, intruction_label, start_default, end_default):
-        self.setFixedSize(400, 200)
+        self.setFixedSize(330, 200)
         container = QWidget()
         layout_vertical = QVBoxLayout(container)
         layout_horizontal = QHBoxLayout()
         layout_horizontal.setAlignment(Qt.AlignLeft)
         intruction = QLabel(intruction_label)
         start = QLineEdit(start_default)
-        start.setFixedWidth(100)
+        start.setFixedWidth(50)
         to = QLabel("to")
         end = QLineEdit(end_default)
-        end.setFixedWidth(100)
+        end.setFixedWidth(50)
         download_button = QPushButton("DOWNLOAD")
         download_button.clicked.connect(
             lambda:self.download_asset(
@@ -1106,6 +1191,17 @@ class MainWindow(QMainWindow):
         option = self.option.currentText()
         server = self.server.currentText()
         files = []
+        
+        if self.option.currentText() == 'another live background data low':
+            max_digit  = 6
+            files = []
+            for file_id in range(start_id, last_id+1):
+                for music_last_id in range(1,3):
+                    files.append(f'live_bg_data_9{str(file_id).zfill(max_digit)}{music_last_id}.cpk')
+        elif self.option.currentText() == 'another live background data high':
+            max_digit  = 6
+            files = [f'live_bg_data_9{str(file_id).zfill(max_digit)}3.cpk'
+                     for file_id in range(start_id, last_id+1)]
 
         if self.option.currentText() == "card voice":
             max_digit = 6
@@ -1308,9 +1404,23 @@ class Ffmpeg_process():
         process.wait()
 
         if process.returncode == 0:
-            self.worker.file_done.emit(filename, True, f"{filename[:-4]} Downloaded")
+            self.worker.file_done.emit(filename, True, f"{filename.split(".")[0]} Downloaded")
         else:
             self.worker.file_done.emit(filename, False, "FFmpeg error")
+
+    def another_live_background_data(self, filename, video_path, audio_path):
+        output_dir = os.path.join(OUTPUT_PATH, "another-live-background-data", filename[:-5])
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
+        command = ["ffmpeg",
+                   "-loglevel", "error",
+                   "-i", video_path,
+                   "-i", audio_path,
+                   "-c", "copy",
+                   "-progress", "pipe:1", "-nostats",
+                   output_path,
+                   "-y"]
+        self.run_ffmpeg(filename, command)
 
     def focus_data_low(self, filename, video_path: str, audio_path: str):
         output_dir = os.path.join(OUTPUT_PATH, "focus-data")
