@@ -105,7 +105,7 @@ class AnotherLiveBackgroundDataLowProcessor(BaseProcessor):
                 output = os.path.join(OUTPUT_PATH, "another-live-background-data", filename[:-5], filename.replace(".cpk", ".png"))
                 shutil.copy(f'{extracted_path}/background', output)
             
-            self.worker.file_done.emit(filename, True, f'{filename[:-4]} Downloaded')
+            self.worker.file_done.emit(filename, True, f'{filename.split(".")[0]} Downloaded')
         except  Exception as e:
             self.worker.file_done.emit(filename, False, f"FFmpeg: {str(e)}")
         shutil.rmtree(extracted_path)
@@ -1308,17 +1308,12 @@ class Extractor():
     def safe_open(self, file, mode='r', *args, **kwargs):
         try:
             if isinstance(file, str) and "\\" in file:
-                for frame in inspect.stack()[1:8]:
-                    fname = frame.filename.replace("\\", "/")
+                cleaned_basename = os.path.basename(file.replace("\\", "/"))
+                sanitized_path = os.path.join(TEMP, cleaned_basename)
 
-                    if "PyCriCodecs/usm.py" in fname or fname.endswith("/usm.py"):
-                        cleaned_basename = os.path.basename(file.replace("\\", "/"))
-                        sanitized_path = os.path.join(TEMP, cleaned_basename)
-
-                        return self._real_open(sanitized_path, mode, *args, **kwargs)
-
-        except Exception as e:
-            print("safe_open error:", e) 
+                return self._real_open(sanitized_path, mode, *args, **kwargs)
+        except Exception:
+            pass
 
         return self._real_open(file, mode, *args, **kwargs)
 
