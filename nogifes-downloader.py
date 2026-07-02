@@ -1410,13 +1410,19 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
-                   "-c", "copy",
+                   "-map", "0:v:0",
+                   "-map", "1:a:0",
+                   "-c:v", "copy",
+                   "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
 
     def focus_data_low(self, filename, video_path: str, audio_path: str):
@@ -1424,26 +1430,39 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
-                   "-c", "copy",
+                   "-map", "0:v:0",
+                   "-map", "1:a:0",
+                   "-c:v", "copy",
+                   "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
+
     def focus_data_high(self, filename, video_path: str, audio_path: str):
         output_dir = os.path.join(OUTPUT_PATH, "focus-data-high")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
-                   "-c", "copy",
+                   "-map", "0:v:0",
+                   "-map", "1:a:0",
+                   "-c:v", "copy",
+                   "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
 
     def live_background_data(self, filename, video_path, audio_path):
@@ -1451,13 +1470,19 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
-                   "-c", "copy",
+                   "-map", "0:v:0",
+                   "-map", "1:a:0",
+                   "-c:v", "copy",
+                   "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
 
     def live_finish_movie(self, filename, video_path, audio_path):
@@ -1465,14 +1490,19 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
+                   "-map", "0:v:0",
+                   "-map", "1:a:0",
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
 
     def member_standing(self, filename, video_path):
@@ -1480,13 +1510,18 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
+                   "-map", "0:v:0",
+                   "-map", "0:a:0",
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
 
     def movie_card(self, filename, video_path):
@@ -1494,31 +1529,42 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
+                   "-map", "0:v:0",
+                   "-map", "0:a:0",
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
-    
+
     def movie_card_with_music(self, filename, video_path, bgm_path):
         output_dir = os.path.join(OUTPUT_PATH, "movie-card-with-music")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
-        
+
         command = [
             "ffmpeg",
+            "-y",
+            "-loglevel", "error",
             "-i", video_path,
             "-i", bgm_path,
-            "-filter_complex", '[1:0] apad',
+            "-filter_complex", "[1:0]apad",
+            "-map", "0:v:0",
+            "-map", "0:a:0",
             "-c:v", "copy",
             "-c:a", "aac",
+            "-b:a", "192k",
+            "-ar", "44100",
+            "-ac", "2",
             "-shortest",
             "-progress", "pipe:1", "-nostats",
-            output_path,
-            "-y"
+            output_path
         ]
         self.run_ffmpeg(filename, command)
 
@@ -1527,27 +1573,39 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
-                   "-c", "copy",
+                   "-map", "0:v:0",
+                   "-map", "1:a:0",
+                   "-c:v", "copy",
+                   "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
-    
+
     def other_data_high(self, filename, video_path, audio_path):
         output_dir = os.path.join(OUTPUT_PATH, "other-data-high")
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".cpk", ".mp4"))
         command = ["ffmpeg",
+                   "-y",
                    "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
-                   "-c", "copy",
+                   "-map", "0:v:0",
+                   "-map", "1:a:0",
+                   "-c:v", "copy",
+                   "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
 
     def reward_movie(self, filename, video_path, audio_path):
@@ -1555,14 +1613,19 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
-                   "-loglevel", "error",   
+                   "-y",
+                   "-loglevel", "error",
                    "-i", video_path,
                    "-i", audio_path,
+                   "-map", "0:v:0",
+                   "-map", "1:a:0",
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
 
     def unit_gacha_movie(self, filename, video_path):
@@ -1570,13 +1633,18 @@ class Ffmpeg_process():
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, filename.replace(".usme", ".mp4"))
         command = ["ffmpeg",
-                   "-loglevel", "error",   
+                   "-y",
+                   "-loglevel", "error",
                    "-i", video_path,
+                   "-map", "0:v:0",
+                   "-map", "0:a:0",
                    "-c:v", "copy",
                    "-c:a", "aac",
+                   "-b:a", "192k",
+                   "-ar", "44100",
+                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
-                   output_path,
-                   "-y"]
+                   output_path]
         self.run_ffmpeg(filename, command)
 
 def main():
@@ -1589,4 +1657,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
