@@ -579,7 +579,7 @@ class Progress(QThread):
                 self.start_progress.emit(filename)
 
                 if output_path and os.path.exists(output_path):
-                    self.file_done.emit(filename, True, f'{filename[:-4]} already exist')
+                    self.file_done.emit(filename, True, f'{filename.split(".")[0]} already exist')
                     continue
 
                 processor.process(filepath, filename)
@@ -594,7 +594,7 @@ class Progress(QThread):
             output_path = processor.get_output_path(filename)
             if output_path and os.path.exists(output_path):
                 self.start_progress.emit(filename)
-                self.file_done.emit(filename, True, f'{filename[:-4]} already exist')
+                self.file_done.emit(filename, True, f'{filename.split(".")[0]} already exist')
                 continue
 
             self.start_progress.emit(filename)
@@ -694,7 +694,7 @@ class DownloadProgress(QDialog):
         self.scroll = scroll
 
     def _add_file_widget(self, filename):
-        lbl = QLabel(filename[:-4])
+        lbl = QLabel(filename.split(".")[0])
         bar = QProgressBar()
         status = QLabel("Downloading...")
 
@@ -740,7 +740,7 @@ class DownloadProgress(QDialog):
             return
         if "already exist" in message:
             w["bar"].hide()
-            w["label"].setText(f'{filename[:-4]} already exist')
+            w["label"].setText(f'{filename.split(".")[0]} already exist')
             w["label"].setStyleSheet("color: green;")
             w["status"].hide()
         if "is not in the server" in message:
@@ -1367,11 +1367,13 @@ class Ffmpeg_process():
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
-            text=True,
             bufsize=1,
             startupinfo=startupinfo,
             creationflags=creationflags
         )
+
+        for raw_line in process.stdout:
+            line = raw_line.decode("utf-8", errors="ignore").strip()
 
         duration = None
 
