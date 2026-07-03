@@ -1555,13 +1555,8 @@ class Ffmpeg_process():
             "-i", video_path,
             "-i", bgm_path,
             "-filter_complex", "[1:0]apad",
-            "-map", "0:v:0",
-            "-map", "0:a:0",
             "-c:v", "copy",
             "-c:a", "aac",
-            "-b:a", "192k",
-            "-ar", "44100",
-            "-ac", "2",
             "-shortest",
             "-progress", "pipe:1", "-nostats",
             output_path
