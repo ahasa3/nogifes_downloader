@@ -1532,13 +1532,8 @@ class Ffmpeg_process():
                    "-y",
                    "-loglevel", "error",
                    "-i", video_path,
-                   "-map", "0:v:0",
-                   "-map", "0:a:0",
                    "-c:v", "copy",
                    "-c:a", "aac",
-                   "-b:a", "192k",
-                   "-ar", "44100",
-                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
                    output_path]
         self.run_ffmpeg(filename, command)
@@ -1631,13 +1626,8 @@ class Ffmpeg_process():
                    "-y",
                    "-loglevel", "error",
                    "-i", video_path,
-                   "-map", "0:v:0",
-                   "-map", "0:a:0",
                    "-c:v", "copy",
                    "-c:a", "aac",
-                   "-b:a", "192k",
-                   "-ar", "44100",
-                   "-ac", "2",
                    "-progress", "pipe:1", "-nostats",
                    output_path]
         self.run_ffmpeg(filename, command)
