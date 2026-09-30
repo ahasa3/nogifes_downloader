@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QDialog, QProgressBar, QScrollArea
 )
 from PyQt5.QtGui import QIcon, QPixmap
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QThread, QSemaphore, pyqtSignal
 from urllib.parse import urlparse
 from PyCriCodecs import ACB, AWB, CPK, USM
 
@@ -59,7 +59,8 @@ else:
     BASEDIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_PATH = os.path.join(BASEDIR, "Downloads")
 TEMP = os.path.join(BASEDIR, 'temp')
-os.makedirs(TEMP,exist_ok= True)
+THUMBNAIL_DIR = os.path.join(OUTPUT_PATH, 'movie-card', '.thumbnail')
+os.makedirs(TEMP, exist_ok=True)
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 
 class BaseProcessor:
@@ -621,6 +622,9 @@ class Progress(QThread):
 
             processor.process(filepath, filename)
 
+
+_THUMB_SEMAPHORE = QSemaphore(4)  # maks 4 proses ffmpeg thumbnail bersamaan
+
 class ThumbnailThread(QThread):
     done = pyqtSignal(object)   # QPixmap
 
@@ -630,35 +634,47 @@ class ThumbnailThread(QThread):
 
     def run(self):
         try:
-            tmp = os.path.join(TEMP, f"thumb_{os.path.basename(self.video_path)}.jpg")
+            os.makedirs(THUMBNAIL_DIR, exist_ok=True)
+            cache_path = os.path.join(
+                THUMBNAIL_DIR,
+                os.path.splitext(os.path.basename(self.video_path))[0] + ".jpg"
+            )
 
-            startupinfo = None
-            creationflags = 0
+            # Gunakan cache jika sudah ada
+            if os.path.exists(cache_path):
+                pix = QPixmap(cache_path)
+                if not pix.isNull():
+                    self.done.emit(pix)
+                return
 
-            if os.name == "nt":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                creationflags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+            # Batasi concurrent ffmpeg dengan semaphore
+            _THUMB_SEMAPHORE.acquire()
+            try:
+                startupinfo = None
+                creationflags = 0
 
-            result = subprocess.run([
-                "ffmpeg", "-y", 
-                "-i", self.video_path,
-                "-ss", "00:00:01", "-vframes", "1",
-                "-vf", "scale=264:-1", tmp
-            ], 
-                stdin=subprocess.DEVNULL, 
-                startupinfo=startupinfo,
-                creationflags=creationflags, 
-                capture_output=True, 
-                timeout=10)
-            
-            pix = QPixmap(tmp)
+                if os.name == "nt":
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    creationflags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+
+                subprocess.run([
+                    "ffmpeg", "-y",
+                    "-i", self.video_path,
+                    "-ss", "00:00:01", "-vframes", "1",
+                    "-vf", "scale=264:-1", cache_path
+                ],
+                    stdin=subprocess.DEVNULL,
+                    startupinfo=startupinfo,
+                    creationflags=creationflags,
+                    capture_output=True,
+                    timeout=15)
+            finally:
+                _THUMB_SEMAPHORE.release()
+
+            pix = QPixmap(cache_path)
             if not pix.isNull():
                 self.done.emit(pix)
-            try:
-                os.remove(tmp)
-            except Exception:
-                pass
         except Exception:
             pass
 
