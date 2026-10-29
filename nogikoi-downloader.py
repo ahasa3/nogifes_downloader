@@ -6,7 +6,7 @@ import requests
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QComboBox, QLineEdit, QDialog,
-    QProgressBar, QScrollArea
+    QProgressBar, QScrollArea, QTextEdit
 )
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
@@ -36,12 +36,15 @@ FILE_PATH = {
 }
 
 content_option = [
+    'audio-member-story',
     'bg-event',
     'card-png',
     'card-jpg',
     'icon',
     'sprites',
-    'sound'
+    'sprites-event',
+    'sound',
+    'video'
 ]
 
 card_color_id = {
@@ -122,6 +125,35 @@ def convert_m4a_to_wav(m4a_path):
         return False
 
 
+def convert_to_mp4(src_path):
+    """Convert a video file to mp4 using ffmpeg, then remove the original."""
+    base, ext = os.path.splitext(src_path)
+    if ext.lower() == '.mp4':
+        return True  # already mp4
+    mp4_path = base + '.mp4'
+    try:
+        startupinfo = None
+        creationflags = 0
+        if os.name == "nt":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            creationflags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
+
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", src_path, "-c", "copy", mp4_path],
+            stdin=subprocess.DEVNULL,
+            startupinfo=startupinfo,
+            creationflags=creationflags,
+            capture_output=True,
+            timeout=300
+        )
+        if os.path.exists(mp4_path):
+            os.remove(src_path)
+        return True
+    except Exception:
+        return False
+
+
 class Progress(QThread):
     start_progress = pyqtSignal(str)              # filename
     progress = pyqtSignal(str, int, int)          # filename, downloaded_bytes, total_bytes
@@ -135,6 +167,7 @@ class Progress(QThread):
             - 'dest_path': destination local file path
             - 'filename': display name
             - 'convert_wav': (optional) bool, if True convert m4a to wav after download
+            - 'convert_mp4': (optional) bool, if True convert video to mp4 after download
         """
         super().__init__()
         self.download_tasks = download_tasks
@@ -154,6 +187,7 @@ class Progress(QThread):
             dest_path = item["dest_path"]
             filename = item["filename"]
             need_convert = item.get("convert_wav", False)
+            need_mp4 = item.get("convert_mp4", False)
 
             # Check if already converted wav exists
             wav_path = dest_path.rsplit('.', 1)[0] + '.wav' if need_convert else None
@@ -161,6 +195,15 @@ class Progress(QThread):
                 self.start_progress.emit(filename)
                 self.file_done.emit(filename, True, f"{filename} already exist")
                 continue
+
+            # Check if already converted mp4 exists
+            if need_mp4:
+                base_no_ext, ext = os.path.splitext(dest_path)
+                mp4_path = base_no_ext + '.mp4'
+                if ext.lower() != '.mp4' and os.path.exists(mp4_path):
+                    self.start_progress.emit(filename)
+                    self.file_done.emit(filename, True, f"{filename} already exist")
+                    continue
 
             self.start_progress.emit(filename)
 
@@ -193,6 +236,10 @@ class Progress(QThread):
                     # Convert m4a to wav if needed
                     if need_convert:
                         convert_m4a_to_wav(dest_path)
+
+                    # Convert to mp4 if needed
+                    if need_mp4:
+                        convert_to_mp4(dest_path)
 
                     self.file_done.emit(filename, True, f"{filename} Downloaded")
                 else:
@@ -354,12 +401,18 @@ class MainWindow(QMainWindow):
             self.card_ui(current)
         elif current == 'sprites':
             self.sprites_ui()
+        elif current == 'sprites-event':
+            self.sprites_event_ui()
         elif current == 'bg-event':
             self.bg_event_ui()
         elif current == 'icon':
             self.icon_ui()
         elif current == 'sound':
             self.sound_ui()
+        elif current == 'video':
+            self.video_ui()
+        elif current == 'audio-member-story':
+            self.audio_member_story_ui()
 
     def card_ui(self, card_type: str):
         self.setFixedSize(380, 280)
@@ -451,36 +504,80 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(container)
         self._dynamic_widgets.append(container)
 
+    def sprites_event_ui(self):
+        self.setFixedSize(400, 250)
+        container = QWidget()
+        layout_vertical = QVBoxLayout(container)
+        
+        member_layout = QHBoxLayout()
+        member_label = QLabel("Select Member:")
+        self.member_combo = QComboBox()
+
+        for mid, mname in self.member_data.items():
+            self.member_combo.addItem(f"{mname}", mid)
+
+        member_layout.addWidget(member_label)
+        member_layout.addWidget(self.member_combo)
+
+        download_button = QPushButton("DOWNLOAD")
+        download_button.clicked.connect(
+            lambda: self.download_sprites_event_asset(
+                container,
+                self.member_combo.currentData()
+            )
+        )
+
+        layout_vertical.addLayout(member_layout)
+        layout_vertical.addWidget(download_button)
+
+        self.layout.addWidget(container)
+        self._dynamic_widgets.append(container)
+
     def bg_event_ui(self):
-        self.setFixedSize(400, 220)
+        self.setFixedSize(420, 260)
         container = QWidget()
         layout_vertical = QVBoxLayout(container)
 
-        event_layout = QHBoxLayout()
-        event_label = QLabel("Event number (min 48):")
-        event_input = QLineEdit("48")
-        event_input.setFixedWidth(50)
-        generation_label = QLabel("Generation:")
-        self.generation_combo = QComboBox()
-        self.generation_combo.addItem("All generation", "all")
-        self.generation_combo.addItem("1 dan 2", "1 dan 2")
-        for i in range(3,7):
-            self.generation_combo.addItem(f"{i}", i)
-        event_layout.addWidget(event_label)
-        event_layout.addWidget(event_input)
-        event_layout.addWidget(generation_label)
-        event_layout.addWidget(self.generation_combo)
+        member_layout = QHBoxLayout()
+        member_label = QLabel("Select Member:")
+        self.bg_member_combo = QComboBox()
+        for mid, mname in self.member_data.items():
+            self.bg_member_combo.addItem(f"{mname}", mid)
+        member_layout.addWidget(member_label)
+        member_layout.addWidget(self.bg_member_combo)
+
+        anniv_layout = QHBoxLayout()
+        anniv_layout.setAlignment(Qt.AlignLeft)
+        anniv_label = QLabel("Anniv range (min 48):")
+        anniv_start = QLineEdit("48")
+        anniv_start.setFixedWidth(50)
+        to_label = QLabel("to")
+        anniv_end = QLineEdit("50")
+        anniv_end.setFixedWidth(50)
+        anniv_layout.addWidget(anniv_label)
+        anniv_layout.addWidget(anniv_start)
+        anniv_layout.addWidget(to_label)
+        anniv_layout.addWidget(anniv_end)
+
+        info_label = QLabel(
+            "Downloads bg_main_back_{member_id}.jpg\n"
+            "Output folder: per member name"
+        )
+        info_label.setStyleSheet("color: #777; font-size: 11px;")
 
         download_button = QPushButton("DOWNLOAD")
         download_button.clicked.connect(
             lambda: self.download_bg_event_asset(
                 container,
-                int(event_input.text()),
-                str(self.generation_combo.currentData())
+                self.bg_member_combo.currentData(),
+                int(anniv_start.text()),
+                int(anniv_end.text())
             )
         )
 
-        layout_vertical.addLayout(event_layout)
+        layout_vertical.addLayout(member_layout)
+        layout_vertical.addLayout(anniv_layout)
+        layout_vertical.addWidget(info_label)
         layout_vertical.addWidget(download_button)
 
         self.layout.addWidget(container)
@@ -548,6 +645,72 @@ class MainWindow(QMainWindow):
         self.layout.addWidget(container)
         self._dynamic_widgets.append(container)
 
+    def video_ui(self):
+        self.setFixedSize(500, 250)
+        container = QWidget()
+        layout_vertical = QVBoxLayout(container)
+
+        url_label = QLabel("Paste video URL(s) below (one per line):")
+        self.video_url_input = QTextEdit()
+        self.video_url_input.setPlaceholderText("https://example.com/video.mp4")
+        self.video_url_input.setFixedHeight(100)
+
+        button_layout = QHBoxLayout()
+
+        clear_button = QPushButton("CLEAR")
+        clear_button.clicked.connect(lambda: self.video_url_input.clear())
+
+        download_button = QPushButton("DOWNLOAD")
+        download_button.clicked.connect(
+            lambda: self.download_video_asset(
+                container,
+                self.video_url_input.toPlainText()
+            )
+        )
+
+        button_layout.addWidget(clear_button)
+        button_layout.addWidget(download_button)
+
+        layout_vertical.addWidget(url_label)
+        layout_vertical.addWidget(self.video_url_input)
+        layout_vertical.addLayout(button_layout)
+
+        self.layout.addWidget(container)
+        self._dynamic_widgets.append(container)
+
+    def audio_member_story_ui(self):
+        self.setFixedSize(500, 250)
+        container = QWidget()
+        layout_vertical = QVBoxLayout(container)
+
+        url_label = QLabel("Paste video URL(s) below (one per line):")
+        self.audio_url_input = QTextEdit()
+        self.audio_url_input.setPlaceholderText("https://example.com/video.mp4")
+        self.audio_url_input.setFixedHeight(100)
+
+        button_layout = QHBoxLayout()
+
+        clear_button = QPushButton("CLEAR")
+        clear_button.clicked.connect(lambda: self.audio_url_input.clear())
+
+        download_button = QPushButton("DOWNLOAD")
+        download_button.clicked.connect(
+            lambda: self.download_audio_member_story_asset(
+                container,
+                self.audio_url_input.toPlainText()
+            )
+        )
+
+        button_layout.addWidget(clear_button)
+        button_layout.addWidget(download_button)
+
+        layout_vertical.addWidget(url_label)
+        layout_vertical.addWidget(self.audio_url_input)
+        layout_vertical.addLayout(button_layout)
+
+        self.layout.addWidget(container)
+        self._dynamic_widgets.append(container)
+
     # ── Download Methods ──────────────────────────────────────────
 
     def download_card_asset(self, parent_widget, card_type: str, star: str, color_option: str, start_id: int, last_id: int):
@@ -605,30 +768,47 @@ class MainWindow(QMainWindow):
         dialog = DownloadProgress(tasks, "sprites", parent=parent_widget)
         dialog.exec_()
 
-    def download_bg_event_asset(self, parent_widget, event_num: int, gen: str):
+    def download_sprites_event_asset(self, parent_widget, member_id: str):
         server = self.server.currentText()
         server_url = MAIN_PATH[server]
-        event_2digit = str(event_num).zfill(2)
-        member_id = list(self.member_data.keys())
-        generation = {
-            '1 dan 2': member_id[:33],
-            '3': member_id[33:45],
-            '4': member_id[45:61],
-            '5': member_id[61:72],
-            '6': member_id[72:],
-            'all': member_id
-        }
+        path_prefix = FILE_PATH["sprites"]
+        member_name = self.member_data.get(str(member_id), f"member_{member_id}")
+
+        chars = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
 
         tasks = []
-        member_list = generation[gen]
-        for mid in member_list:
-            filename = f"bg_main_back_{mid}.jpg"
-            url = f"{server_url}{FILE_PATH['bg-event']}love50{event_2digit}/index/bg/top/{filename}"
-            dest_path = os.path.join(OUTPUT_PATH, "bg-event", f"event-{event_num}", filename)
+        for num in range(52, 55):
+            two_digit = str(num).zfill(2)
+            for ch in chars:
+                    filename = f"n{member_id}_{two_digit}_{ch}.png"
+                    url = f"{server_url}{path_prefix}{filename}"
+                    dest_path = os.path.join(OUTPUT_PATH, "sprites-event", member_name, filename)
+                    tasks.append({
+                        "url": url,
+                        "dest_path": dest_path,
+                        "filename": filename
+                    })
+
+        dialog = DownloadProgress(tasks, "sprites-event", parent=parent_widget)
+        dialog.exec_()
+
+
+    def download_bg_event_asset(self, parent_widget, member_id: str, anniv_start: int, anniv_end: int):
+        server = self.server.currentText()
+        server_url = MAIN_PATH[server]
+        member_name = self.member_data.get(str(member_id), f"member_{member_id}")
+
+        tasks = []
+        for anniv_num in range(anniv_start, anniv_end + 1):
+            anniv_2digit = str(anniv_num).zfill(2)
+            filename = f"bg_main_back_{member_id}.jpg"
+            display_name = f"anniv{anniv_num}_{filename}"
+            url = f"{server_url}{FILE_PATH['bg-event']}love50{anniv_2digit}/index/bg/top/{filename}"
+            dest_path = os.path.join(OUTPUT_PATH, "bg-event", member_name, f"anniv-{anniv_num}", filename)
             tasks.append({
                 "url": url,
                 "dest_path": dest_path,
-                "filename": filename
+                "filename": display_name
             })
 
         dialog = DownloadProgress(tasks, "bg-event", parent=parent_widget)
@@ -699,6 +879,46 @@ class MainWindow(QMainWindow):
             })
 
         dialog = DownloadProgress(tasks, "sound", parent=parent_widget)
+        dialog.exec_()
+
+    def download_video_asset(self, parent_widget, url_text: str):
+        from urllib.parse import urlparse
+        urls = [line.strip() for line in url_text.strip().splitlines() if line.strip()]
+        if not urls:
+            return
+
+        tasks = []
+        for url in urls:
+            filename = os.path.basename(urlparse(url).path) or "video_download"
+            dest_path = os.path.join(OUTPUT_PATH, "video", filename)
+            tasks.append({
+                "url": url,
+                "dest_path": dest_path,
+                "filename": filename,
+                "convert_mp4": True
+            })
+
+        dialog = DownloadProgress(tasks, "video", parent=parent_widget)
+        dialog.exec_()
+
+    def download_audio_member_story_asset(self, parent_widget, url_text: str):
+        from urllib.parse import urlparse
+        urls = [line.strip() for line in url_text.strip().splitlines() if line.strip()]
+        if not urls:
+            return
+
+        tasks = []
+        for url in urls:
+            filename = os.path.basename(urlparse(url).path) or "audio_member_story_download"
+            dest_path = os.path.join(OUTPUT_PATH, "audio-member-story", filename)
+            tasks.append({
+                "url": url,
+                "dest_path": dest_path,
+                "filename": filename,
+                "convert_wav": True
+            })
+
+        dialog = DownloadProgress(tasks, "audio-member-story", parent=parent_widget)
         dialog.exec_()
 
     @staticmethod
